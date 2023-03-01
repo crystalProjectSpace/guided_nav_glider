@@ -108,7 +108,7 @@ const createObserver = function(targeting, ctrlPoint) {
 
 		coords[0] = state[3]
 		coords[1] = state[4]
-		coords[2] = state[4]
+		coords[2] = state[5]
 
 		VECT[0] = CTH * CPSI
 		VECT[1] = STH 
@@ -118,7 +118,12 @@ const createObserver = function(targeting, ctrlPoint) {
 		const v_projection = GROUND_PLANE.projectPoint(VECT)
 		const delta_cr = coords.subt(ctrlPoint)
 
-		targeting.visPrev = targeting.visActive?.clone()
+		if (targeting.visActive) {
+			targeting.visPrev[0] = targeting.visActive[0]
+			targeting.visPrev[1] = targeting.visActive[1]
+			targeting.visPrev[2] = targeting.visActive[2]
+		}
+
 		targeting.visActive = ctrlPoint.subt(cr_projection)
 		
 		const ascend = v_projection.angle(VECT)
@@ -133,20 +138,18 @@ const createObserver = function(targeting, ctrlPoint) {
 	return function(state, t) {
 		if(t < 2.5) return 0
 		const { targeting } = vehicle
-		if(targeting.distance > 2000) {
-			const alpha = alphaBase - (state[1] * 57.3) * kTh
-			if(alpha < -ALPHA_SAFE) return -ALPHA_SAFE
-			if(alpha > ALPHA_SAFE) return ALPHA_SAFE
-			return alpha
-		}
-		if(targeting.distance < 2000) {
+		let alpha = 0
+		if (targeting.distance > 1000) {
+			alpha = alphaBase - (state[1] * 57.3) * kTh
+		} else {
 			if(targeting.dive === 0) targeting.dive = -Math.asin(state[4]/targeting.distance)
-			const alpha = (targeting.dive - state[1]) * 6.85 * 57.3
-			if(alpha < -ALPHA_SAFE) return -ALPHA_SAFE
-			if(alpha > ALPHA_SAFE) return ALPHA_SAFE
-			return alpha
+			alpha = (targeting.dive - state[1]) * 11.85 * 57.3
 		}
-		return 0
+
+		if(alpha < -ALPHA_SAFE) return -ALPHA_SAFE
+		if(alpha > ALPHA_SAFE) return ALPHA_SAFE
+		targeting.alpha = alpha
+		return targeting.alpha
 	}
 }
 
@@ -154,18 +157,17 @@ const createObserver = function(targeting, ctrlPoint) {
 const createGammaFunc = function(ctrlParams, vehicle) {
 	const { rollStart, rollEnd, rollPerSecond } = ctrlParams
 	return function(state, t) {
-		if(vehicle.targeting.distance < 2000) return 0
+		if(vehicle.targeting.distance < 1000) return 0
 		if(t < rollStart) return 0
 		if(t > rollEnd) return 0
 		const { targeting } = vehicle
-		let dGamma = targeting.dVisAngle * 325.
+		let dGamma = targeting.dVisAngle * 375.
 		if(dGamma < -rollPerSecond) dGamma = -rollPerSecond
 		if(dGamma > rollPerSecond) dGamma = rollPerSecond
 		let res = targeting.gamma + dGamma
 		if(res > 1.57) res = 1.57
 		if(res < -1.57) res = -1.57
 		targeting.gamma = res
-		//console.log(res * 57.3)
 		return targeting.gamma
 	}
 }

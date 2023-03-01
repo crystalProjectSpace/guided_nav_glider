@@ -32,7 +32,7 @@ class Glider {
 		
 		this.targeting = {
 			visActive: null,
-			visPrev: null,
+			visPrev: Vect3D.fromXYZ(0, 0, 0),
 			dVisAngle: 0,
 			distance: 1E10,
 			ascend: 0,
@@ -75,9 +75,9 @@ const Cya_glider = [-2.4000, -1.6000, -1.2000, -0.8000, -0.6400, -0.4800, -0.320
 const AoA_glider = [-30,		-20,	-15,		-10,	-8,		-6,		-4,		- 2,		0,	2,		4,		6,		8,		10,		15,		20,		30]
 const M0 = 75
 const S0 = 0.5
-const dT_base = 0.025
+const dT_base = 0.01
 
-const INIT_STATE = [485, 5/57.3, 0, 0, 1250, 0]
+const INIT_STATE = [325, 1/57.3, 0, 0, 1250, 0]
 
 const ALPHA_CTRL_PRM = {
 	alphaBase: 2.15,
@@ -88,19 +88,19 @@ const ALPHA_CTRL_PRM = {
 const GAMMA_CTRL_PRM = {
 	rollStart: 2.5,
 	rollEnd: 125,
-	rollPerSecond: 35  * 0.1 / 57.3,
+	rollPerSecond: 45  * 0.1 / 57.3,
 }
 
 const testGlider = new Glider(M0, S0, Cxa_glider, Cya_glider, AoA_glider)
 testGlider.setPitchControl(createAlphaFunc(ALPHA_CTRL_PRM, testGlider))
 testGlider.setRollControl(createGammaFunc(GAMMA_CTRL_PRM, testGlider))
-testGlider.setObserver(createObserver, Vect3D.fromXYZ(8000, 0, -1500))
+testGlider.setObserver(createObserver, Vect3D.fromXYZ(3000, 0, -2500))
 
 const gliderTrajectory = testGlider.getTrajectory(INIT_STATE, defaultFlightEnd, dT_base)
 
 const response = gliderTrajectory.reduce((res, row, i) => {
 	const { state, t } = row
-	if (i % 5 !== 0) return res
+	if (i % 2 !== 0) return res
 	res += [
 		t.toFixed(1),
 		state[0].toFixed(1),
