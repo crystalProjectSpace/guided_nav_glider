@@ -22,6 +22,12 @@ const getRo = function(H) {
 	return 1.2 * Math.exp(-0.0001261 * H)
 }
 
+const targetingError = function(coords, velocity, target) {
+	const targetingPlane = new Plane(coords, velocity.normalize())
+	const targetProjection = targetingPlane.projectPoint(target)
+	return targetProjection.subt(coords).abs()
+}
+
 const derivatives = function(state, params, controls, t) {
 	const alpha = controls.AoA(state, t)
 	const gamma = controls.roll(state, t)
@@ -130,6 +136,7 @@ const createObserver = function(targeting, ctrlPoint) {
 		targeting.dVisAngle = targeting.visPrev ? (targeting.visActive.angle(targeting.visPrev)) / dT : 0
 		targeting.ascend = ascend
 		targeting.distance = delta_cr.abs()
+		targeting.miss = targetingError(coords, VECT, ctrlPoint)
 	}
 }
 
@@ -138,9 +145,12 @@ const createObserver = function(targeting, ctrlPoint) {
 	return function(state, t) {
 		if(t < 2.5) return 0
 		const { targeting } = vehicle
-		let alpha = 0
+		let alpha = targeting.alpha
 		if (targeting.distance > 1000) {
-			alpha = alphaBase - (state[1] * 57.3) * kTh
+			const dAlpha = state[1] * 57.3 * kTh
+			if(dAlpha < -5) return -5
+			if(dAlpha > 5) return 5
+			alpha += dAlpha
 		} else {
 			if(targeting.dive === 0) targeting.dive = -Math.asin(state[4]/targeting.distance)
 			alpha = (targeting.dive - state[1]) * 11.85 * 57.3
