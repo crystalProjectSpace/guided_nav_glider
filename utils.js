@@ -2,12 +2,13 @@
 const { Vect3D, Plane } = require('./vect3.js')
 // adx for small sub/transsonic drone with long thin wing
 // cxa0 = 0.025, Apolar = 0.16, dCdY = 0.08
-const ALPHA_SAFE = 22.5
+const ALPHA_SAFE = 25.5
 const g = 9.81
+const GLOBAL_VERT = Vect3D.fromXYZ(0, 1, 0)
 
 const GROUND_PLANE = new Plane(
 	Vect3D.fromXYZ(0, 0, 0),
-	Vect3D.fromXYZ(0, 1, 0),
+	GLOBAL_VERT,
 )
 
 const linterp = function(YV, XV, X) {
@@ -22,10 +23,19 @@ const getRo = function(H) {
 	return 1.2 * Math.exp(-0.0001261 * H)
 }
 
-const targetingError = function(coords, velocity, target) {
-	const targetingPlane = new Plane(coords, velocity.normalize())
-	const targetProjection = targetingPlane.projectPoint(target)
-	return targetProjection.subt(coords).abs()
+const targetingError = function(coord, velocity, target) {
+	const delta_cr = target.subt(coord)
+	const lateral_axis = GLOBAL_VERT.cross(delta_cr)
+	const vert_axis = lateral_axis.cross(delta_cr)
+
+	const collisionPlane = new Plane(target, delta_cr)
+	const targetingPlane = new Plane(target, lateral_axis)
+	const localHorizon = new Plane(target, vert_axis)
+
+	const collision = collisionPlane.lineIntersect(velocity, coord)
+	const cross = localHorizon.projectPoint(collision).subt(coord)
+	const ascend = targetingPlane.projectPoint(collision).subt(coord)
+	return [velocity.angle(cross), velocity.angle(ascend), coord.subt(target).abs()]
 }
 
 const derivatives = function(state, params, controls, t) {
@@ -135,7 +145,7 @@ const createObserver = function(targeting, ctrlPoint) {
 		const ascend = v_projection.angle(VECT)
 		targeting.dVisAngle = targeting.visPrev ? (targeting.visActive.angle(targeting.visPrev)) / dT : 0
 		targeting.ascend = ascend
-		targeting.distance = delta_cr.abs()
+		targeting.distance = delta_cr.abs() * Math.cos(ascend)
 		targeting.miss = targetingError(coords, VECT, ctrlPoint)
 	}
 }
@@ -146,16 +156,16 @@ const createObserver = function(targeting, ctrlPoint) {
 		if(t < 2.5) return 0
 		const { targeting } = vehicle
 		let alpha = targeting.alpha
-		if (targeting.distance > 1000) {
-			const dAlpha = state[1] * 57.3 * kTh
-			if(dAlpha < -5) return -5
-			if(dAlpha > 5) return 5
-			alpha += dAlpha
+		let dAlpha = 0
+		if (targeting.distance > 2000) {
+			dAlpha = state[1] * 57.3 * kTh
 		} else {
-			if(targeting.dive === 0) targeting.dive = -Math.asin(state[4]/targeting.distance)
-			alpha = (targeting.dive - state[1]) * 11.85 * 57.3
+			dAlpha = -targeting.miss[1] * 57.3 * 5
+//			console.log(state[1] * 57.3, (targeting.miss[1]*57.3).toFixed(2))			
 		}
-
+		if(dAlpha < -12.5) return -12.5
+		if(dAlpha > 12.5) return 12.5
+		alpha += dAlpha
 		if(alpha < -ALPHA_SAFE) return -ALPHA_SAFE
 		if(alpha > ALPHA_SAFE) return ALPHA_SAFE
 		targeting.alpha = alpha
@@ -167,11 +177,16 @@ const createObserver = function(targeting, ctrlPoint) {
 const createGammaFunc = function(ctrlParams, vehicle) {
 	const { rollStart, rollEnd, rollPerSecond } = ctrlParams
 	return function(state, t) {
-		if(vehicle.targeting.distance < 1000) return 0
+		const targeting = vehicle.targeting
 		if(t < rollStart) return 0
 		if(t > rollEnd) return 0
-		const { targeting } = vehicle
-		let dGamma = targeting.dVisAngle * 375.
+		let dGamma = 0
+		if(vehicle.targeting.distance < 2000) {
+			dGamma = -targeting.miss[0] * 0
+		} else {
+			dGamma = targeting.dVisAngle * 375.
+		}
+		
 		if(dGamma < -rollPerSecond) dGamma = -rollPerSecond
 		if(dGamma > rollPerSecond) dGamma = rollPerSecond
 		let res = targeting.gamma + dGamma

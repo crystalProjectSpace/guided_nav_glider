@@ -121,6 +121,11 @@ class Plane {
 		const t = this.point.subt(P).dot(this.norm) / this.norm.dot(this.norm)
 		return P.summ(this.norm.byScalar(t))
 	}
+
+	lineIntersect(direct, initPoint) {
+		const t = this.point.subt(initPoint).dot(this.norm) / this.norm.dot(direct)
+		return initPoint.summ(direct.byScalar(t))
+	}
 	
 	getPlaneAngle(P) {
 		return this.n.angle(P.n)

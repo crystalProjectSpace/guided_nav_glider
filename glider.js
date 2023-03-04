@@ -78,7 +78,7 @@ const M0 = 75
 const S0 = 0.5
 const dT_base = 0.05
 
-const INIT_STATE = [425, 5/57.3, 0, 0, 1750, 0]
+const INIT_STATE = [450, 1/57.3, 0, 0, 6000, 0]
 
 const ALPHA_CTRL_PRM = {
 	alphaBase: 2.15,
@@ -87,7 +87,7 @@ const ALPHA_CTRL_PRM = {
 }
 
 const GAMMA_CTRL_PRM = {
-	rollStart: 20.5,
+	rollStart: 2.5,
 	rollEnd: 200,
 	rollPerSecond: 45  * 0.1 / 57.3,
 }
@@ -95,13 +95,13 @@ const GAMMA_CTRL_PRM = {
 const testGlider = new Glider(M0, S0, Cxa_glider, Cya_glider, AoA_glider)
 testGlider.setPitchControl(createAlphaFunc(ALPHA_CTRL_PRM, testGlider))
 testGlider.setRollControl(createGammaFunc(GAMMA_CTRL_PRM, testGlider))
-testGlider.setObserver(createObserver, Vect3D.fromXYZ(4500, 0, -4500))
+testGlider.setObserver(createObserver, Vect3D.fromXYZ(8500, 0, -4500))
 
 const gliderTrajectory = testGlider.getTrajectory(INIT_STATE, defaultFlightEnd, dT_base)
 
 const response = gliderTrajectory.reduce((res, row, i) => {
 	const { state, t } = row
-	if (i % 10 !== 0) return res
+	if (i % 2 !== 0) return res
 	res += [
 		t.toFixed(1),
 		state[0].toFixed(1),
